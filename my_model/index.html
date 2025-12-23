@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> Animal Breed Detection
+</title>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 30px;
+        }
+        #webcam-container, #upload-preview {
+            margin-top: 20px;
+        }
+        #upload-preview img {
+            max-width: 300px;
+            max-height: 300px;
+        }
+        #label-container {
+            margin-top: 15px;
+            font-size: 18px;
+        }
+        #error {
+            margin-top: 10px;
+            color: red;
+            font-weight: bold;
+            white-space: pre-wrap;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Animal Breed Detection</h2>
+
+    
+    <button onclick="startWebcam()">Start Webcam</button>
+
+    
+    <input type="file" id="image-input" accept="image/*">
+
+    <!-- Webcam Display -->
+    <div id="webcam-container"></div>
+
+    <!-- Uploaded Image Preview -->
+    <div id="upload-preview">
+        <img id="preview">
+    </div>
+
+    <!-- Predictions -->
+    <div id="label-container"></div>
+    <div id="error"></div>
+
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/fUg14EgHb/";
+
+        let model, webcam, labelContainer, maxPredictions;
+
+        
+        window.onload = async function () {
+            try {
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                labelContainer = document.getElementById("label-container");
+                labelContainer.innerHTML = "";
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+            } catch (err) {
+                document.getElementById("error").textContent =
+                    "Error loading model:\n" + err;
+            }
+        };
+
+        
+        async function startWebcam() {
+            try {
+                const flip = true;
+                webcam = new tmImage.Webcam(200, 200, flip);
+                await webcam.setup();
+                await webcam.play();
+                window.requestAnimationFrame(webcamLoop);
+
+                document.getElementById("webcam-container").innerHTML = "";
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+            } catch (err) {
+                document.getElementById("error").textContent =
+                    "Webcam error:\n" + err;
+            }
+        }
+
+        async function webcamLoop() {
+            webcam.update();
+            await predict(webcam.canvas);
+            window.requestAnimationFrame(webcamLoop);
+        }
+
+        
+        async function predict(imageElement) {
+    const prediction = await model.predict(imageElement);
+
+    
+    let highest = prediction[0];
+    for (let i = 1; i < prediction.length; i++) {
+        if (prediction[i].probability > highest.probability) {
+            highest = prediction[i];
+        }
+    }
+
+    
+    labelContainer.innerHTML = `
+        <b>Detected Breed:</b> ${highest.className}<br>
+       
+    `;
+}
+
+
+        
+        document.getElementById("image-input").addEventListener("change", function (evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+
+            const img = document.getElementById("preview");
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                img.src = e.target.result;
+                img.onload = function () {
+                    predict(img); // run prediction on uploaded image
+                };
+            };
+
+            reader.readAsDataURL(file);
+        });
+    </script>
+
+</body>
+</html>
